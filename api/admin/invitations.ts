@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import type { VercelRequest, VercelResponse } from "../_lib/types";
+import type { VercelRequest, VercelResponse } from "../_lib/types.js";
 import {
   createInvitationToken,
   methodNotAllowed,
@@ -9,7 +9,7 @@ import {
   sameOrigin,
   sendJson,
   type Invitation,
-} from "../_lib/storage";
+} from "../_lib/storage.js";
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   if (request.method === "GET") {

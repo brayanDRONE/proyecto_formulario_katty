@@ -1,5 +1,5 @@
-import type { VercelRequest, VercelResponse } from "./_lib/types";
-import { methodNotAllowed, readInvitationToken, sendJson } from "./_lib/storage";
+import type { VercelRequest, VercelResponse } from "./_lib/types.js";
+import { methodNotAllowed, readInvitationToken, sendJson } from "./_lib/storage.js";
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   if (request.method !== "GET") return methodNotAllowed(response, "GET");

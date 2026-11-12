@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
-import type { VercelRequest, VercelResponse } from "./_lib/types";
-import { CONSENT_VERSION, STEP_QUESTIONS } from "../src/formData";
-import { sendConsentPdf } from "./_lib/email";
-import { createConsentPdf } from "./_lib/pdf";
+import type { VercelRequest, VercelResponse } from "./_lib/types.js";
+import { CONSENT_VERSION, STEP_QUESTIONS } from "../src/formData.js";
+import { sendConsentPdf } from "./_lib/email.js";
+import { createConsentPdf } from "./_lib/pdf.js";
 import {
   methodNotAllowed,
   readInvitationToken,
@@ -10,7 +10,7 @@ import {
   safeText,
   sendJson,
   type ConsentRecord,
-} from "./_lib/storage";
+} from "./_lib/storage.js";
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   if (request.method !== "POST") return methodNotAllowed(response, "POST");

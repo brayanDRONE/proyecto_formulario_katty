@@ -1,5 +1,5 @@
 import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
-import type { VercelRequest, VercelResponse } from "./types";
+import type { VercelRequest, VercelResponse } from "./types.js";
 
 export type Invitation = {
   id: string;

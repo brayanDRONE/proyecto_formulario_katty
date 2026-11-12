@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { CONSENT_SUMMARY, FORM_STEPS, STEP_QUESTIONS } from "../../src/formData";
-import type { ConsentRecord } from "./storage";
+import { CONSENT_SUMMARY, FORM_STEPS, STEP_QUESTIONS } from "../../src/formData.js";
+import type { ConsentRecord } from "./storage.js";
 
 function pdfText(value: string) {
   return value

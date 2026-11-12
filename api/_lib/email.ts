@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import type { ConsentRecord } from "./storage";
+import type { ConsentRecord } from "./storage.js";
 
 export async function sendConsentPdf(record: ConsentRecord, pdf: Uint8Array) {
   const apiKey = process.env.RESEND_API_KEY;

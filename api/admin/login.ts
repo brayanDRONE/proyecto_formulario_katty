@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from "../_lib/types";
+import type { VercelRequest, VercelResponse } from "../_lib/types.js";
 import {
   methodNotAllowed,
   parseBody,
@@ -6,7 +6,7 @@ import {
   sameOrigin,
   sendJson,
   setAdminCookie,
-} from "../_lib/storage";
+} from "../_lib/storage.js";
 
 const attempts = new Map<string, { count: number; resetAt: number }>();
 

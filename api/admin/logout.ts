@@ -1,5 +1,5 @@
-import type { VercelRequest, VercelResponse } from "../_lib/types";
-import { clearAdminCookie, methodNotAllowed, sameOrigin, sendJson } from "../_lib/storage";
+import type { VercelRequest, VercelResponse } from "../_lib/types.js";
+import { clearAdminCookie, methodNotAllowed, sameOrigin, sendJson } from "../_lib/storage.js";
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   if (request.method !== "POST") return methodNotAllowed(response, "POST");
