@@ -25,13 +25,6 @@ type FormAnswers = {
   consentAccepted: boolean;
 };
 
-const DEMO_INVITATION = {
-  id: "demo",
-  firstName: "Camila",
-  lastName: "Ejemplo",
-  service: "Lifting de pestañas",
-};
-
 const invitationToken =
   window.location.pathname.match(/^\/consentimiento\/([\w.-]+)\/?$/)?.[1] ?? null;
 
@@ -43,7 +36,8 @@ function App() {
     lastName: string;
     service: string;
     appointmentDate?: string | null;
-  } | null>(invitationToken ? null : DEMO_INVITATION);
+  } | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const [token] = useState<string | null>(invitationToken);
   const [answers, setAnswers] = useState<FormAnswers>({
     questions: {},
@@ -109,10 +103,7 @@ function App() {
     step === 4 && SENSITIVITY_DETAIL_IDS.some((id) => answers.questions[id] === "yes");
 
   const submitForm = async () => {
-    if (!token) {
-      setMessage("Esta demostración no envía ni guarda tus respuestas.");
-      return;
-    }
+    if (!token) return;
 
     setSubmitting(true);
     setMessage("");
@@ -129,17 +120,14 @@ function App() {
           consentVersion: CONSENT_VERSION,
         }),
       });
-      const result = await response.json() as { error?: string; emailStatus?: string };
+      const result = await response.json() as { error?: string };
       if (!response.ok) {
         setMessage(result.error ?? "No se pudo completar el envío. Inténtalo nuevamente.");
         return;
       }
 
-      setMessage(
-        result.emailStatus === "sent"
-          ? "Formulario recibido. El PDF fue enviado a la profesional."
-          : "Formulario recibido. La notificación por correo está pendiente; tus respuestas quedaron registradas.",
-      );
+      setSubmitted(true);
+      window.scrollTo({ top: 0 });
     } catch {
       setMessage("No se pudo conectar con el servidor. Inténtalo nuevamente.");
     } finally {
@@ -177,16 +165,30 @@ function App() {
       setStep((current) => current + 1);
       setMessage("");
       window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
     }
-
-    setMessage("Esta demostración no envía ni guarda tus respuestas.");
   };
 
   const progress = (step / FORM_STEPS.length) * 100;
 
   if (window.location.pathname === "/admin" || window.location.pathname === "/admin/") {
     return <Admin />;
+  }
+
+  if (submitted) {
+    return (
+      <main className="page-shell">
+        <header className="brand-header">
+          <img className="brand-seal" src="/marca/sello-lash-by-katty.png" alt="Lash by Katty" />
+        </header>
+        <section className="admin-card" role="status">
+          <h1 className="admin-title">¡Gracias{invitation ? `, ${invitation.firstName}` : ""}!</h1>
+          <p>
+            Recibimos tu formulario correctamente. Katty lo revisará antes de tu
+            atención. Ya puedes cerrar esta página.
+          </p>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -252,10 +254,6 @@ function App() {
                 <span>Servicio preparado para ti</span>
                 <strong>{invitation.service}</strong>
               </div>
-              <p className="demo-hint">
-                En esta demostración se muestran datos de ejemplo. En la versión
-                conectada, tu invitación cargará los datos registrados por Katty.
-              </p>
             </div>
           )}
 
@@ -407,8 +405,7 @@ function App() {
                 </p>
               )}
               <p className="demo-hint">
-                Tus respuestas se conservan solo mientras esta página está abierta.
-                Esta demostración no las guarda ni las envía.
+                Revisa tus respuestas. Al finalizar se enviarán a la profesional.
               </p>
             </div>
           )}
@@ -447,7 +444,6 @@ function App() {
           </div>
         </div>
       </section>
-      <p className="demo-caption">Demostración visual · tus respuestas no se guardan ni se envían</p>
     </main>
   );
 }
