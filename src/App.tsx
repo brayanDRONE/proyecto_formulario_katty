@@ -33,7 +33,7 @@ const DEMO_INVITATION = {
 };
 
 const invitationToken =
-  window.location.pathname.match(/^\/consentimiento\/([\w-]+)\/?$/)?.[1] ?? null;
+  window.location.pathname.match(/^\/consentimiento\/([\w.-]+)\/?$/)?.[1] ?? null;
 
 function App() {
   const [step, setStep] = useState(1);

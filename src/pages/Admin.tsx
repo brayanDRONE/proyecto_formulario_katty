@@ -1,23 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Copy, ExternalLink, LogOut, RefreshCw } from "lucide-react";
+import { Copy, ExternalLink, LogOut } from "lucide-react";
 
 type Invitation = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  service: string;
-  createdAt: string;
   expiresAt: string;
-};
-
-type ConsentRecord = {
-  id: string;
-  recordKey: string;
-  firstName: string;
-  lastName: string;
-  service: string;
-  submittedAt: string;
-  emailStatus: "pending" | "sent";
 };
 
 type ApiResult<T> = T & { error?: string };
@@ -38,8 +23,6 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<ApiResul
 function Admin() {
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
-  const [records, setRecords] = useState<ConsentRecord[]>([]);
   const [newLink, setNewLink] = useState("");
   const [newLinkGreeting, setNewLinkGreeting] = useState("");
   const [message, setMessage] = useState("");
@@ -50,18 +33,12 @@ function Admin() {
     rut: "",
     service: "",
     appointmentDate: "",
-    notes: "",
   });
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const [invitationResult, recordsResult] = await Promise.all([
-        requestJson<{ invitations: Invitation[] }>("/api/admin/invitations"),
-        requestJson<{ records: ConsentRecord[] }>("/api/admin/records"),
-      ]);
-      setInvitations(invitationResult.invitations);
-      setRecords(recordsResult.records);
+      await requestJson("/api/admin/invitations");
       setAuthenticated(true);
     } catch (error) {
       if (error instanceof Error && error.message === "Inicia sesión para continuar.") {
@@ -111,9 +88,7 @@ function Admin() {
         rut: "",
         service: "",
         appointmentDate: "",
-        notes: "",
       });
-      await loadDashboard();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo crear el enlace.");
     }
@@ -128,28 +103,11 @@ function Admin() {
     }
   };
 
-  const retryEmail = async (recordKey: string) => {
-    setMessage("");
-    try {
-      const result = await requestJson<{ emailStatus: "pending" | "sent" }>("/api/admin/retry-email", {
-        method: "POST",
-        body: JSON.stringify({ recordKey }),
-      });
-      await loadDashboard();
-      setMessage(result.emailStatus === "sent"
-        ? "El correo con el PDF se envió correctamente."
-        : "El consentimiento permanece guardado, pero Resend aún no confirmó el envío.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo reintentar el correo.");
-    }
-  };
-
   const logout = async () => {
     try {
       await requestJson("/api/admin/logout", { method: "POST", body: "{}" });
       setAuthenticated(false);
-      setInvitations([]);
-      setRecords([]);
+      setNewLink("");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo cerrar sesión.");
     }
@@ -183,7 +141,7 @@ function Admin() {
         ) : (
           <>
             <div className="admin-toolbar">
-              <span>Solicitudes: {invitations.length} · Consentimientos: {records.length}</span>
+              <span>Genera un enlace personalizado para cada clienta.</span>
               <button className="admin-quiet-button" type="button" onClick={() => void logout()}>
                 <LogOut aria-hidden="true" /> Cerrar sesión
               </button>
@@ -216,10 +174,6 @@ function Admin() {
                   Fecha de atención (opcional)
                   <input type="date" value={form.appointmentDate} onChange={(event) => setForm({ ...form, appointmentDate: event.target.value })} />
                 </label>
-                <label className="admin-notes-field">
-                  Observaciones administrativas (opcional)
-                  <textarea rows={2} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
-                </label>
                 <button className="admin-primary-button" type="submit">Generar enlace de consentimiento</button>
               </form>
               {newLink && (
@@ -243,34 +197,6 @@ function Admin() {
               )}
             </section>
 
-            <section className="admin-section">
-              <h2>Consentimientos recibidos</h2>
-              {records.length === 0 ? (
-                <p>Aún no hay consentimientos completados.</p>
-              ) : (
-                <div className="admin-record-list">
-                  {records.map((record) => (
-                    <article className="admin-record" key={record.id}>
-                      <div>
-                        <strong>{record.firstName} {record.lastName}</strong>
-                        <span>{record.service} · {new Date(record.submittedAt).toLocaleString("es-CL")}</span>
-                        <span>Correo: {record.emailStatus === "sent" ? "Enviado" : "Pendiente"}</span>
-                      </div>
-                      <div className="admin-record-actions">
-                        <a className="admin-quiet-button" href={`/api/admin/pdf?key=${record.recordKey}`}>
-                          Descargar PDF
-                        </a>
-                        {record.emailStatus !== "sent" && (
-                          <button className="admin-quiet-button" type="button" onClick={() => void retryEmail(record.recordKey)}>
-                            <RefreshCw aria-hidden="true" /> Reintentar correo
-                          </button>
-                        )}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </section>
           </>
         )}
         {loading && <p className="admin-status">Cargando panel…</p>}

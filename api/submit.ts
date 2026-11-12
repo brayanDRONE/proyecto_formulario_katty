@@ -1,36 +1,24 @@
 import { randomBytes } from "node:crypto";
-import { get, put } from "@vercel/blob";
 import type { VercelRequest, VercelResponse } from "./_lib/types";
 import { CONSENT_VERSION, STEP_QUESTIONS } from "../src/formData";
 import { sendConsentPdf } from "./_lib/email";
 import { createConsentPdf } from "./_lib/pdf";
 import {
   methodNotAllowed,
-  readJson,
+  readInvitationToken,
   readRequestBody,
   safeText,
   sendJson,
-  sha256,
-  writeJson,
   type ConsentRecord,
-  type Invitation,
 } from "./_lib/storage";
-
-type SubmissionBody = {
-  token?: unknown;
-  answers?: unknown;
-  medicationDetails?: unknown;
-  sensitivityDetails?: unknown;
-  consentAccepted?: unknown;
-  consentVersion?: unknown;
-};
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   if (request.method !== "POST") return methodNotAllowed(response, "POST");
-  const body = await readRequestBody(request) as SubmissionBody;
-  const token = safeText(body.token, 100);
-  if (!/^[\w-]{40,50}$/.test(token)) {
-    return sendJson(response, 400, { error: "El enlace no es válido." });
+  const body = await readRequestBody(request);
+  const token = safeText(body.token, 2000);
+  const invitation = readInvitationToken(token);
+  if (!invitation) {
+    return sendJson(response, 404, { error: "El enlace no es válido o ya venció." });
   }
   if (body.consentAccepted !== true || body.consentVersion !== CONSENT_VERSION) {
     return sendJson(response, 400, { error: "La declaración debe aceptarse antes de enviar." });
@@ -64,77 +52,35 @@ export default async function handler(request: VercelRequest, response: VercelRe
     return sendJson(response, 400, { error: "Completa el detalle de alergias o sensibilidades." });
   }
 
-  const tokenHash = sha256(token);
-  const invitationPath = `invitations/${tokenHash}.json`;
-  const submissionPath = `consents/${tokenHash}.json`;
+  const now = new Date().toISOString();
+  const record: ConsentRecord = {
+    id: randomBytes(8).toString("hex"),
+    invitation,
+    answers: answers as Record<string, "yes" | "no">,
+    medicationDetails,
+    sensitivityDetails,
+    consentVersion: CONSENT_VERSION,
+    acceptedAt: now,
+    submittedAt: now,
+  };
+
   try {
-    const invitation = await readJson<Invitation>(invitationPath);
-    if (!invitation || new Date(invitation.expiresAt).getTime() <= Date.now()) {
-      return sendJson(response, 404, { error: "El enlace no es válido o ya venció." });
-    }
-
-    let record = await readJson<ConsentRecord>(submissionPath);
-    if (!record) {
-      record = {
-        id: randomBytes(12).toString("hex"),
-        invitationId: invitation.id,
-        tokenHash,
-        invitation,
-        answers: answers as Record<string, "yes" | "no">,
-        medicationDetails,
-        sensitivityDetails,
-        consentVersion: CONSENT_VERSION,
-        acceptedAt: new Date().toISOString(),
-        submittedAt: new Date().toISOString(),
-        pdfPath: `pdf/${tokenHash}.pdf`,
-        emailStatus: "pending",
-        processingStatus: "pending",
-      };
-      try {
-        await writeJson(submissionPath, record);
-      } catch {
-        record = await readJson<ConsentRecord>(submissionPath);
-        if (!record) throw new Error("Unable to create consent record.");
-      }
-    }
-
-    const existingPdf = await get(record.pdfPath, { access: "private" });
-    let pdfBytes: Uint8Array;
-    if (existingPdf?.statusCode === 200 && existingPdf.stream) {
-      pdfBytes = new Uint8Array(await new Response(existingPdf.stream).arrayBuffer());
-    } else {
-      pdfBytes = await createConsentPdf(record);
-      await put(record.pdfPath, pdfBytes, {
-        access: "private",
-        addRandomSuffix: false,
-        allowOverwrite: false,
-        contentType: "application/pdf",
-        cacheControlMaxAge: 60,
+    const pdf = await createConsentPdf(record);
+    const sent = await sendConsentPdf(record, pdf);
+    if (!sent) {
+      console.error("consent_email_not_sent");
+      return sendJson(response, 503, {
+        error: "No se pudo enviar el formulario. Inténtalo nuevamente o avisa a la profesional.",
       });
     }
-
-    record.processingStatus = "completed";
-    await writeJson(submissionPath, record, true);
-
-    if (record.emailStatus !== "sent") {
-      try {
-        record.emailStatus = await sendConsentPdf(record) ? "sent" : "pending";
-      } catch {
-        console.error("consent_email_delivery_failed");
-        record.emailStatus = "pending";
-      }
-      await writeJson(submissionPath, record, true);
-    }
-
-    return sendJson(response, record.emailStatus === "sent" ? 200 : 202, {
+    return sendJson(response, 200, {
       ok: true,
-      emailStatus: record.emailStatus,
-      message: record.emailStatus === "sent"
-        ? "Formulario recibido y PDF enviado a la profesional."
-        : "Formulario recibido; el correo está pendiente de configuración o reintento.",
+      message: "Formulario recibido y PDF enviado a la profesional.",
     });
   } catch {
     console.error("consent_submission_failed");
-    return sendJson(response, 503, { error: "No se pudo completar el envío. Inténtalo nuevamente." });
+    return sendJson(response, 503, {
+      error: "No se pudo enviar el formulario. Inténtalo nuevamente.",
+    });
   }
 }

@@ -1,5 +1,4 @@
-import { createHash, createHmac, scryptSync, timingSafeEqual } from "node:crypto";
-import { get, put } from "@vercel/blob";
+import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "./types";
 
 export type Invitation = {
@@ -9,15 +8,12 @@ export type Invitation = {
   service: string;
   rut: string | null;
   appointmentDate: string | null;
-  notes: string | null;
   createdAt: string;
   expiresAt: string;
 };
 
 export type ConsentRecord = {
   id: string;
-  invitationId: string;
-  tokenHash: string;
   invitation: Invitation;
   answers: Record<string, "yes" | "no">;
   medicationDetails: string;
@@ -25,14 +21,7 @@ export type ConsentRecord = {
   consentVersion: string;
   acceptedAt: string;
   submittedAt: string;
-  pdfPath: string;
-  emailStatus: "pending" | "sent";
-  processingStatus: "pending" | "completed";
 };
-
-export function sha256(value: string) {
-  return createHash("sha256").update(value).digest("hex");
-}
 
 export function sendJson(
   response: VercelResponse,
@@ -65,26 +54,6 @@ export function parseBody(request: VercelRequest): Record<string, unknown> {
   return {};
 }
 
-export async function readJson<T>(pathname: string): Promise<T | null> {
-  const blob = await get(pathname, { access: "private" });
-  if (!blob || blob.statusCode !== 200 || !blob.stream) return null;
-  return await new Response(blob.stream).json() as T;
-}
-
-export async function writeJson(
-  pathname: string,
-  value: unknown,
-  allowOverwrite = false,
-) {
-  return put(pathname, JSON.stringify(value), {
-    access: "private",
-    addRandomSuffix: false,
-    allowOverwrite,
-    contentType: "application/json; charset=utf-8",
-    cacheControlMaxAge: 60,
-  });
-}
-
 function sessionSecret() {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 32) {
@@ -95,6 +64,28 @@ function sessionSecret() {
 
 function sign(payload: string) {
   return createHmac("sha256", sessionSecret()).update(payload).digest("base64url");
+}
+
+export function createInvitationToken(invitation: Invitation) {
+  const payload = Buffer.from(JSON.stringify(invitation)).toString("base64url");
+  return `${payload}.${sign(`invitation:${payload}`)}`;
+}
+
+export function readInvitationToken(token: string): Invitation | null {
+  try {
+    const [payload, signature] = token.split(".");
+    if (!payload || !signature) return null;
+    const expected = Buffer.from(sign(`invitation:${payload}`));
+    const provided = Buffer.from(signature);
+    if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
+      return null;
+    }
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString()) as Invitation;
+    if (new Date(data.expiresAt).getTime() <= Date.now()) return null;
+    return data;
+  } catch {
+    return null;
+  }
 }
 
 export function createAdminCookie() {
