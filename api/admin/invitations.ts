@@ -33,9 +33,12 @@ export default async function handler(request: VercelRequest, response: VercelRe
     return sendJson(response, 400, { error: "La fecha de atención no es válida." });
   }
 
-  const baseUrl = process.env.APP_BASE_URL;
-  if (!baseUrl) return sendJson(response, 503, { error: "Falta configurar APP_BASE_URL." });
-
+  let origin: string;
+  try {
+    origin = new URL(process.env.APP_BASE_URL ?? "").origin;
+  } catch {
+    return sendJson(response, 503, { error: "APP_BASE_URL no es una URL válida." });
+  }
   const ttl = Number(process.env.INVITATION_TTL_DAYS ?? 7);
   const ttlDays = Number.isInteger(ttl) && ttl >= 1 && ttl <= 30 ? ttl : 7;
   const createdAt = new Date();
@@ -52,6 +55,6 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
   return sendJson(response, 201, {
     invitation,
-    link: `${baseUrl.replace(/\/$/, "")}/consentimiento/${createInvitationToken(invitation)}`,
+    link: `${origin}/consentimiento/${createInvitationToken(invitation)}`,
   });
 }
