@@ -137,7 +137,12 @@ export function clearAdminCookie(response: VercelResponse) {
   );
 }
 
-export function passwordMatches(candidate: string, encodedHash: string) {
+export function passwordMatches(candidate: string, rawHash: string) {
+  const encodedHash = rawHash
+    .trim()
+    .replace(/^ADMIN_PASSWORD_HASH\s*=\s*/, "")
+    .replace(/^["']|["']$/g, "")
+    .trim();
   const [algorithm, saltText, hashText] = encodedHash.split("$");
   if (algorithm !== "scrypt" || !saltText || !hashText) return false;
   try {

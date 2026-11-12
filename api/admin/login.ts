@@ -35,7 +35,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
     return sendJson(response, 503, { error: "El acceso administrativo aún no está configurado." });
   }
   if (typeof password !== "string" || !passwordMatches(password, expectedHash)) {
-    return sendJson(response, 401, { error: "Correo o contraseña incorrectos." });
+    return sendJson(response, 401, { error: "Contraseña incorrecta." });
   }
   if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
     return sendJson(response, 503, { error: "La sesión administrativa no está configurada." });
