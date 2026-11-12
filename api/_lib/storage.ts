@@ -158,10 +158,15 @@ export function passwordMatches(candidate: string, rawHash: string) {
 
 export function sameOrigin(request: VercelRequest) {
   const origin = request.headers.origin;
-  const configuredOrigin = process.env.APP_BASE_URL;
-  if (!origin || !configuredOrigin) return false;
+  if (!origin || typeof origin !== "string") return false;
   try {
-    return new URL(origin).origin === new URL(configuredOrigin).origin;
+    const originUrl = new URL(origin);
+    const forwarded = request.headers["x-forwarded-host"];
+    const hostHeader = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+    const host = (hostHeader ?? request.headers.host ?? "").split(",")[0].trim();
+    if (host && originUrl.host === host) return true;
+    const configuredOrigin = process.env.APP_BASE_URL;
+    return Boolean(configuredOrigin) && originUrl.origin === new URL(configuredOrigin as string).origin;
   } catch {
     return false;
   }
