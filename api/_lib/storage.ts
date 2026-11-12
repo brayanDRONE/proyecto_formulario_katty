@@ -68,12 +68,12 @@ function sign(payload: string) {
 
 export function createInvitationToken(invitation: Invitation) {
   const payload = Buffer.from(JSON.stringify(invitation)).toString("base64url");
-  return `${payload}.${sign(`invitation:${payload}`)}`;
+  return `${payload}~${sign(`invitation:${payload}`)}`;
 }
 
 export function readInvitationToken(token: string): Invitation | null {
   try {
-    const [payload, signature] = token.split(".");
+    const [payload, signature] = token.split("~");
     if (!payload || !signature) return null;
     const expected = Buffer.from(sign(`invitation:${payload}`));
     const provided = Buffer.from(signature);
